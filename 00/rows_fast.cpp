@@ -14,7 +14,7 @@ int main (int argc, char* argv [])
 	
 	//Выделяем память и распределяем указатели по двумерному массиву
 	int*  mem  = (int*)  malloc (arrSize*arrSize*sizeof (int));
-	int** array = (int**) malloc (arrSize*arrSize*sizeof (int*));
+	int** array = (int**) malloc (arrSize*sizeof (int*));
 	
 	for (int i = 0, *ptr = mem; i < arrSize; i++)
 	{
@@ -40,7 +40,7 @@ int main (int argc, char* argv [])
 			}
 		}
 	}
-	//Подсчет времени осполнения окончен
+	//Подсчет времени исполнения окончен
 	
 	delete [] array;
 	delete [] mem;
