@@ -1,5 +1,6 @@
 #include "timer.h"
 #include <cstdlib>
+#include <cstdio>
 
 enum {
 	DEFAULT_SIZE = 10000
