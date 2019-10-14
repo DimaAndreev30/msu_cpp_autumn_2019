@@ -38,6 +38,7 @@ if __name__ == '__main__':
 	check ("     (     -2   *-9 - 17)*4", "4")
 	check ("(1 + 6) /  -7*4  /-   1", "4")
 	check ("(100500 + -100400)/100 * (100*500/10)", "5000")
+	check ("  - -- -  - -- ( -   ----- -- --(-1))", "1")
 
 	print ("\nParenthesis number:")
 	check ("(1 + (2 + (3 + 4)", "Missing right parenthesis", 1)

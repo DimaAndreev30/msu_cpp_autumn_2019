@@ -41,16 +41,19 @@ Calc::~Calc ()
 //Так же считывает унарные операции, как самые приоритетные
 int Calc::getAtom ()
 {
+	bool sgn = 1;
 	skipSpace (ptr_);
+
+	while (*ptr_ == '-')
+	{
+		++ptr_;
+		sgn ^= 1;
+		skipSpace (ptr_);
+	}
 
 	if (isdigit (*ptr_)) 
 	{
-		return getInt (ptr_);
-	}
-	else if (*ptr_ == '-')
-	{
-		++ptr_;
-		return -getAtom ();
+		return sgn ? getInt (ptr_) : -getInt (ptr_);
 	}
 	else if (*ptr_ == '(') 
 	{
@@ -64,7 +67,7 @@ int Calc::getAtom ()
 		}
 		++ptr_;
 
-		return result;
+		return sgn ? result : -result;
 	}
 	else
 	{		
