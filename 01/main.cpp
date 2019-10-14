@@ -11,7 +11,7 @@ int main (int argc, char* argv [])
 	}
 	else
 	{
-		Calc calc = Calc ();
+		Calc calc;
 		if (calc.calculate (argv [1]))
 		{
 			std::cout /*<< argv [1] << " = " */<< calc.getResult () << '\n';

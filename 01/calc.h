@@ -1,3 +1,5 @@
+#include <stdexcept>
+
 class Calc
 {
 	enum class OP_CODE {
@@ -36,7 +38,6 @@ class Calc
 
   public:
 	Calc ();
-	~Calc ();
 
 	bool calculate (const char* exp);
 	int getResult ();

@@ -32,9 +32,6 @@ Calc::Calc ():
 	exp_ (nullptr), ptr_ (nullptr)
 {}
 
-Calc::~Calc ()
-{}
-
 
 //Пропускает все пробельные символы в начале
 //Считывает аргумент оператора как число типа Int или блок, записанный внутри скобок ()
@@ -62,16 +59,18 @@ int Calc::getAtom ()
 
 		skipSpace (ptr_);
 		if (*ptr_ != ')')
-		{		
-			throw ERROR::MISSING_RIGHT_PARENTHESIS;
+		{
+			error_ = ERROR::MISSING_RIGHT_PARENTHESIS;
+			throw std::exception ();
 		}
 		++ptr_;
 
 		return sgn ? result : -result;
 	}
 	else
-	{		
-		throw ERROR::MISSING_ARGUMENT;
+	{	
+		error_ = ERROR::MISSING_ARGUMENT;
+		throw std::exception ();
 	}
 }
 
@@ -100,7 +99,8 @@ int Calc::parseMulDiv ()
 			int divider = getAtom ();
 			if (divider == 0)
 			{
-				throw ERROR::DIVIDED_BY_ZERO;
+				error_ = ERROR::DIVIDED_BY_ZERO;
+				throw std::exception ();
 			}
 
 			result /= divider;
@@ -158,8 +158,7 @@ bool Calc::calculate (const char* exp)
 	try {
 		result_ = parseAddSub ();
 	}
-	catch (ERROR error) {
-		error_ = error;
+	catch (std::exception err) {
 		return false;
 	}
 
