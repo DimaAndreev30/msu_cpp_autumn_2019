@@ -21,9 +21,9 @@ clean:
 	rm -rf *.o calc
 
 
-
+ARGS = "2 + 2"
 run: all
-	./calc "2+2"
+	./calc $(ARGS)
 
 test: all
 	python3 test.py
