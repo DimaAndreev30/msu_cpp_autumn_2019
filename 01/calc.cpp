@@ -25,14 +25,6 @@ int getInt (const char*& exp)
 }
 
 
-
-Calc::Calc ():
-	error_ (ERROR::MISSING_EXPRESSION),
-	result_ (-1), 
-	exp_ (nullptr), ptr_ (nullptr)
-{}
-
-
 //Пропускает все пробельные символы в начале
 //Считывает аргумент оператора как число типа Int или блок, записанный внутри скобок ()
 //Так же считывает унарные операции, как самые приоритетные
@@ -58,20 +50,12 @@ int Calc::getAtom ()
 		int result = parseAddSub ();
 
 		skipSpace (ptr_);
-		if (*ptr_ != ')')
-		{
-			error_ = ERROR::MISSING_RIGHT_PARENTHESIS;
-			throw std::exception ();
-		}
+		if (*ptr_ != ')') throw CalcException (CalcException::MISSING_RIGHT_PAR, ptr_ - exp_);
 		++ptr_;
 
 		return sgn ? result : -result;
 	}
-	else
-	{	
-		error_ = ERROR::MISSING_ARGUMENT;
-		throw std::exception ();
-	}
+	else throw CalcException (CalcException::MISSING_ARGUMENT, ptr_ - exp_ - 1);
 }
 
 //Пропускает все пробельные символы в начале
@@ -95,13 +79,12 @@ int Calc::parseMulDiv ()
 		  }
 		  case '/':
 		  {
+			int pos = ptr_ - exp_;
+
 			++ptr_;
 			int divider = getAtom ();
-			if (divider == 0)
-			{
-				error_ = ERROR::DIVIDED_BY_ZERO;
-				throw std::exception ();
-			}
+
+			if (divider == 0) throw CalcException (CalcException::DIVIDED_BY_ZERO, pos);
 
 			result /= divider;
 			break;
@@ -144,78 +127,24 @@ int Calc::parseAddSub ()
 }
 
 
-bool Calc::calculate (const char* exp)
+int Calc::calculate (const char* exp)
 {
-	if (exp == nullptr)
-	{
-		error_ = ERROR::MISSING_EXPRESSION;
-		return false;
-	}
+	if (exp == nullptr) throw std::invalid_argument ("Missing expression");
 
+	
 	exp_ = exp;
 	ptr_ = exp_;
 
-	try {
-		result_ = parseAddSub ();
-	}
-	catch (std::exception err) {
-		return false;
-	}
+	int result = parseAddSub ();
 
 	if (*ptr_ != '\0')
 	{
-		if (*ptr_ == ')')
-		{
-			error_ = ERROR::EXCESS_RIGHT_PARENTHESIS;
-		}
-		else
-		{
-			error_ = ERROR::UNKNOWN_OPERATOR;
-		}
+		if (*ptr_ == ')') 
+			throw CalcException (CalcException::EXCESS_RIGHT_PAR, ptr_ - exp_);
 
-		return false;
+		else    throw CalcException (CalcException::UNKNOWN_OPERATOR, ptr_ - exp_);
 	}
 
-	error_ = ERROR::ALL_OKEY;
-	return true;
-}
-
-int Calc::getResult ()
-{
-	return result_;
-}
-
-void Calc::printErrorDescription ()
-{
-	if (error_ == ERROR::ALL_OKEY) std::cout << "Expression is correct!\n";
-	else if (error_ == ERROR::MISSING_EXPRESSION) std::cout << "Missing expression\n";
-	else 
-	{
-		switch (error_)
-		{
-		  case ERROR::DIVIDED_BY_ZERO: 
-			std::cout << "Divided by zero\n";
-			break;
-		  case ERROR::OUT_OF_RANGE: 
-			std::cout << "The value of the expression does not fit in INT\n";
-			break;
-		  case ERROR::MISSING_RIGHT_PARENTHESIS: 
-			std::cout << "Missing right parenthesis\n";
-			break;
-		  case ERROR::EXCESS_RIGHT_PARENTHESIS:
-			std::cout << "Excess right parenthesis\n";
-			break;
-		  case ERROR::MISSING_ARGUMENT: 
-			std::cout << "Missing argument\n";
-			break;
-		  case ERROR::UNKNOWN_OPERATOR:
-			std::cout << "Unknown operator\n";
-		}
-
-		std::cout << exp_ << '\n';
-		for (int i = 0; i < ptr_ - exp_; i++)
-			std::cout << ' ';
-		std::cout << '^' << '\n';	
-	}
+	return result;
 }
 

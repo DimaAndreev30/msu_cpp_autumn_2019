@@ -4,23 +4,41 @@
 
 int main (int argc, char* argv [])
 {
-	if (argc < 2) 
+	const char* expression = nullptr;
+
+	if (argc > 1) 
 	{
-		std::cout << "Missing input\n";
-		return 1;
+		expression = argv [1];
 	}
 	else
 	{
-		Calc calc;
-		if (calc.calculate (argv [1]))
+		std::cout << "Missing input\n";
+
+		return 1;
+	}
+	
+	Calc calc;
+
+	try {
+		std::cout /*<< argv [1] << " = " */<< calc.calculate (expression) << '\n';
+	}
+	catch (CalcException &err)
+	{
+		std::cout << err.what () << '\n';
+		std::cout << argv [1] << '\n';
+
+		for (int i = 0; i < err.where (); i++)
 		{
-			std::cout /*<< argv [1] << " = " */<< calc.getResult () << '\n';
+			std::cout << ' ';
 		}
-		else 
-		{
-			calc.printErrorDescription ();
-			return 1;
-		}
+
+		std::cout << '^' << '\n';	
+			
+		return 1;
+	}
+	catch (std::exception &err)
+	{
+		std::cout << err.what () << '\n';
 	}
 
 	return 0;
