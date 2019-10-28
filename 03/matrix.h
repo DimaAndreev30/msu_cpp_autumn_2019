@@ -38,10 +38,21 @@ public:
 		  n_(rows*cols),
 		  data_(new int[n_])
 	{}
+	
+	Matrix(const Matrix& m)
+		: rows_(m.rows_), cols_(m.cols_),
+		  n_(m.n_),
+		  data_(new int[n_])
+	{
+		for (int i = 0; i < n_; i++)
+		{
+			data_[i] = m.data_[i];
+		}
+	}
 
 	~Matrix()
 	{
-		delete data_;
+		delete [] data_;
 	}
 
 
@@ -62,12 +73,14 @@ public:
 	}
 
 
-	void operator*=(int a)
+	Matrix& operator*=(int a)
 	{
 		for (int *ptr = data_, *end = data_ + n_; ptr < end; ptr++)
 		{
 			*ptr *= a;
 		}
+
+		return *this;
 	}
 
 
@@ -78,9 +91,6 @@ public:
 		if (cols_ != op.cols_ ||
 		    rows_ != op.rows_) return false;
 
-		/*for (int i = 0; i < rows_; i++)
-			for (int j = 0; j < cols_; j++)
-				if ((*this)[i][j] != op[i][j]) return false;*/
 		for (int i = 0; i < n_; i++)
 			if (data_[i] != op.data_[i]) return false;
 

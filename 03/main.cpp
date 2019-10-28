@@ -23,5 +23,7 @@ int main (int argc, char* argv [])
 	std::cout << "4*m equals:\n";
 	std::cout << m << std::endl;
 
+	std::cout << "4*m = m is " << BOOLC[m == m2] << std::endl;
+
 	return 0;
 }

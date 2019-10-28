@@ -25,40 +25,48 @@ int main ()
 {
 	size_t rows = 5, cols = 10;
 
-	Matrix m1(rows, cols);
-	Matrix m2(rows, cols);
-	Matrix m3(rows + 1, cols);
-	Matrix m4(rows, cols);
-	const Matrix& m5 = m1;
-	Matrix m6(0, 0);
+	Matrix m(rows, cols);
+	Matrix m_(0, 0);
 
 	for (int i = 0; i < rows; i++)
 		for (int j = 0; j < cols; j++)
-			m1[i][j] = m2[i][j] = i*j;
-	m1[3][3] = -10;
+			m[i][j] = i*j;
 
-	check_equal(m1[0][0], 0)
-	check_equal(m1[1][1], 1)
-	check_equal(m1[4][7], 28)
-	check_equal(m1[3][3], -10)
+	check_equal(m[0][0], 0)
+	check_equal(m[1][1], 1)
+	check_equal(m[4][7], 28)
+	
+	Matrix m2 = m;
+	m[3][3] = -10;
+
+	check_equal(m[3][3], -10)
 	check_equal(m2[3][3], 9)
 
-	check_equal(m1.getRows(), rows)
-	check_equal(m1.getCols(), cols)
-	check_equal(m6.getRows(), 0)
-	check_equal(m6.getCols(), 0)
+	check_equal(m.getRows(), rows)
+	check_equal(m.getCols(), cols)
+	check_equal(m_.getRows(), 0)
+	check_equal(m_.getCols(), 0)
 
-	check_cond(m1 == m1)
-	check_cond(m5 == m1)
-	check_cond(m1 != m2)
-	check_cond(m1 != m3)
-	check_cond(m1 != m4)
+	const Matrix m3 = m;
+	const Matrix m4(rows + 1, cols);
+	const Matrix& m5 = m;
 
-	check_throw(m1[rows][0], std::out_of_range)
-	check_throw(m1[0][cols], std::out_of_range)
-	check_throw(m1[-1][0], std::out_of_range)
-	check_throw(m1[0][-1], std::out_of_range)
-	check_throw(m6[0][0], std::out_of_range)
+	check_cond(m == m)
+	check_cond(m != m2)
+	check_cond(m == m3)
+	check_cond(m != m4)
+	check_cond(m == m5)
+
+	check_throw(m[rows][0], std::out_of_range)
+	check_throw(m[0][cols], std::out_of_range)
+	check_throw(m[-1][0], std::out_of_range)
+	check_throw(m[0][-1], std::out_of_range)
+	check_throw(m_[0][0], std::out_of_range)
+
+	m *= 5;
+	m_ *= 5;
+	check_equal(m[2][3], 30)
+
 
 	return 0;
 }
