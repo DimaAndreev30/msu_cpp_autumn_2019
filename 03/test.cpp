@@ -43,6 +43,11 @@ int main ()
 	check_equal(m1[3][3], -10)
 	check_equal(m2[3][3], 9)
 
+	check_equal(m1.getRows(), rows)
+	check_equal(m1.getCols(), cols)
+	check_equal(m6.getRows(), 0)
+	check_equal(m6.getCols(), 0)
+
 	check_cond(m1 == m1)
 	check_cond(m5 == m1)
 	check_cond(m1 != m2)
