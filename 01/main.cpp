@@ -22,7 +22,7 @@ int main (int argc, char* argv [])
 	try {
 		std::cout /*<< argv [1] << " = " */<< calc.calculate (expression) << '\n';
 	}
-	catch (CalcException &err)
+	catch (CalcException& err)
 	{
 		std::cout << err.what () << '\n';
 		std::cout << argv [1] << '\n';
@@ -36,7 +36,7 @@ int main (int argc, char* argv [])
 			
 		return 1;
 	}
-	catch (std::exception &err)
+	catch (std::exception& err)
 	{
 		std::cout << err.what () << '\n';
 	}

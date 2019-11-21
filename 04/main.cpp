@@ -3,7 +3,9 @@
 #include <exception>
 #include <chrono>
 
-#include "bigint.h"
+#include <cstdint>
+
+//#include "bigint.h"
 
 /*
 class Timer
@@ -30,21 +32,20 @@ private:
 };*/
 
 
+template <class T = uint8_t, class L = uint16_t, size_t t_size=sizeof(T)>
+class A
+{
+	static_assert((T)(~T{}) < (L)(~L{}));
+
+	T _x;
+
+public:
+	A (int x=0): _x(x) {}
+
+	void print() { }
+};
+
+
 int main (int argc, char* argv[])
 {
-	if (argc > 1)
-	{
-		try {
-			const char* str = argv[1] + 1;
-			if (argv[1][0] == 'i')
-				std::cout << BigInt(atoi(str));
-			else if (argv[1][0] == 'u')
-				std::cout << BigInt((unsigned int)atol(str));
-			else std::cout << BigInt(str);
-		}
-		catch (std::exception &err)
-		{
-			std::cout << err.what();
-		}
-	}
 }

@@ -4,16 +4,9 @@
 
 
 LinearAllocator::LinearAllocator (size_t maxSize):
-	maxSize_ (maxSize), occupied_ (0)
-{
-	if (maxSize <= 0)
-	{
-		maxSize_ = 0;
-		mem_ = nullptr;
-	}
-	else 
-		mem_ = new char[maxSize_];
-}
+	maxSize_ (maxSize), occupied_ (0),
+	mem_ (new char[maxSize_])
+{}
 
 LinearAllocator::~LinearAllocator ()
 {

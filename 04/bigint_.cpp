@@ -28,65 +28,12 @@ void mrealloc(T*& ptr, size_t size)
 
 
 // Конструкторы класса
-BigInt::BigInt(BYTE* mem, size_t mem_size=0, bool sign=false)
-	: _sign(sign),
-	  _mem_size(mem_size),
-	  _mem(mem)
-{}
-
-
-size_t BigInt::int_to_256(BYTE data[4], unsigned int value)
-{
-	size_t size = 0;
-	do {
-		data[size] = value;
-		size++;
-		value >>= 8;
-	} while(value);
-	return size;
-}
-
-BigInt::BigInt(int v)
-	: _sign(false),
-	  _mem_size(0),
-	  _mem(nullptr)
-{
-	BYTE b[4];
-
-	size_t new_size;
-	if (v < 0)
-	{
-		_sign = true;
-		new_size = int_to_256(b, -v);
-	}
-	else new_size = int_to_256(b, v);
-
-	_mem = mmalloc<BYTE>(new_size);
-	_mem_size = new_size;
-	std::memcpy(_mem, b, _mem_size);
-}
-
-BigInt::BigInt(unsigned int v=0)
-	: _sign(false),
-	  _mem_size(0),
-	  _mem(nullptr)
-{
-	BYTE b[4];
-
-	size_t new_size = int_to_256(b, v);
-
-	_mem = mmalloc<BYTE>(new_size);
-	_mem_size = new_size;
-	std::memcpy(_mem, b, _mem_size);
-}
-
-
 BigInt::BigInt(const BigInt& value)
 	: _sign(value._sign),
 	  _mem_size(value._mem_size),
 	  _mem(nullptr)
 {
-	_mem = mmalloc<BYTE>(_mem_size);
+	_mem = mmalloc<T>(_mem_size);
 	std::memcpy(_mem, value._mem, _mem_size);
 }
 
@@ -94,7 +41,7 @@ BigInt& BigInt::operator=(const BigInt& value)
 {
 	if (this != &value)
 	{
-		mrealloc<BYTE>(_mem, value._mem_size);
+		mrealloc<T>(_mem, value._mem_size);
 		_mem_size = value._mem_size;
 		std::memcpy(_mem, value._mem, _mem_size);
 		_sign = value._sign;
@@ -108,8 +55,6 @@ BigInt::BigInt(BigInt&& value)
 	  _mem_size(value._mem_size),
 	  _mem(value._mem)
 {
-	value._sign = false;
-	value._mem_size = 0;
 	value._mem = nullptr;
 }
 
@@ -123,8 +68,6 @@ BigInt& BigInt::operator=(BigInt&& value)
 		_mem = value._mem;
 		_sign = value._sign;
 
-		value._sign = false;
-		value._mem_size = 0;
 		value._mem = nullptr;
 	}
 	return *this;
@@ -137,53 +80,177 @@ BigInt::~BigInt()
 }
 
 
-BigInt::BigInt(const char* bit_str)
-	: _sign(false),
+
+BigInt(const T* data, size_t size, bool sign)
+	: _sign(sign ? -1 : 0),
+	  _mem_size(size),
+	  _mem(nullptr)
+
+{
+	_mem = mmalloc<T>(size);
+	std::memcpy(_mem, data, size);
+}
+
+
+
+template <class S = int32_t>
+void BigInt::init_by(S value)
+{
+	T tmp[(8*sizeof(S) - 1)/type_size + 1];
+
+	size_t size = 0;
+	do {
+		data[size] = value;
+		size++;
+		value >>= type_size;
+	} while(value != _sign);
+
+	mrealloc<T>(_mem, size);
+	_mem_size = size;
+	std::memcpy(_mem, tmp, size);
+}
+
+template <class S = int32_t>
+BigInt::BigInt(S value = 0)
+	: _sign(v < 0 ? -1 : 0),
 	  _mem_size(0),
 	  _mem(nullptr)
 {
-	if (*bit_str == '-')
+	init_by(value);
+}
+
+
+void init_by_str_binary(const char* str)
+{
+	if (*str == '-')
 	{
-		bit_str++;
-		_sign = true;
+		str++;
+		_sign = -1;
 	}
-	for (;*bit_str == '0'; bit_str++) {}
+
+	uint8_t system, n_bits;
+	if (*str == '0')
+	{
+		str++;
+		if (*str == 'x' || *str == 'X')
+		{
+			str++;
+			system = 16;
+			n_bits = 4;
+		}
+		else
+		{
+			system = 8;
+			n_bits = 3;
+		}
+	}
+	else if (*str == 'b' || *str == 'B')
+	{
+		str++;
+		if (*str == 'x' || *str == 'X')
+		{
+			str++;
+			system = 4;
+			n_bits = 2;
+		}
+		else
+		{
+			system = 2;
+			n_bits = 1;
+		}
+	}
+	for (;*str == '0'; str++) {}
 
 	size_t size = 0;
-	for (;; size++)
+	if (system < 10)
 	{
-		if (bit_str[size] < '0'  || (bit_str[size] > '9' &&
-		    bit_str[size] < 'A') ||  bit_str[size] > 'F') break;
+		for (; str[size] >= '0' && str[size] < '0' + system; size++);
+	}
+	else
+	{
+		for (; (str[size] >= '0' && str[size] <= '9') ||
+			   (str[size] >= 'A' && str[size] <= 'A' + system - 10); size++);
 	}
 
 	if (size == 0)
 	{
-		_sign = false;
+		_sign = 0;
 		_mem_size = 1;
-		_mem = mmalloc<BYTE>(_mem_size);
+		_mem = mmalloc<T>(1);
 		_mem[0] = 0;
 	}
 	else
 	{
-		size_t new_size = (size + 1)/2;
-		_mem = mmalloc<BYTE>(new_size);
-		_mem_size = new_size;
+		const size_t DIGITS_IN = (type_size - 1)/n_bits + 1;
 
-		// Небольшой фокус для того, что бы неполная пара в строке
-		// обработалась так же, как и все остальные.
-		bit_str += size & 1;
-		for (ptrdiff_t i = -(size & 1), j = _mem_size - 1; j >= 0; j--)
+		_mem_size = (n_bits*size + (type_size - 1))/type_size;
+		_mem = mmalloc<T>(_mem_size);
+
+		L extra = _sign;
+		for (size_t i = size - 1, j = 0; j < _mem_size; j++)
 		{
-			BYTE byte = 0;
+			for ()
+			{
+				if (str[i] <= '9') extra += str[i] - '0';
+				else               extra += str[i] - 'A' + 10;
+				extra <<= n_bits;
+			}
+
+			_mem[j] = _sign ^ extra;
+			extra >>= type_size;
+		}
+	}
+}
+
+BigInt::BigInt(const char* str, uint8_t system)
+	: _sign(0),
+	  _mem_size(0),
+	  _mem(nullptr)
+{
+	if (*str == '-')
+	{
+		str++;
+		_sign = -1;
+	}
+	for (;*str == '0'; str++) {}
+
+	size_t size = 0;
+	for (;; size++)
+	{
+		if (str[size] < '0'  || (str[size] > '9' &&
+		    str[size] < 'A') ||  str[size] > 'F') break;
+	}
+
+	if (size == 0)
+	{
+		_sign = 0;
+		_mem_size = 1;
+		_mem = mmalloc<T>(1);
+		_mem[0] = 0;
+	}
+	else
+	{
+		_mem_size = (4*size + (type_size - 1))/type_size;
+		_mem = mmalloc<T>(_mem_size);
+
+		const uint8_t DIGITS_IN = type_size/16;
+
+		str += size % 2;
+		for (ptrdiff_t i = -(size % 2), j = _mem_size - 1; j >= 0; j--)
+		{
+			L extra = _sign;
 			do
 			{
-				byte <<= 4;
-				if (bit_str[i] <= '9') byte += bit_str[i] - '0';
-				else byte += bit_str[i] - 'A' + 10;
+				extra <<= 4;
+				if (bit_str[i] <= '9') extra += str[i] - '0';
+				else extra += str[i] - 'A' + 10;
 				i++;
-			} while (i & 1);
-			_mem[j] = byte;
+			} while (i % 2);
+			_mem[j] = _sign ^ extra;
+			extra >>= type_size;
 		}
+
+		if (_sign) *this += -1;
 	}
 }
 

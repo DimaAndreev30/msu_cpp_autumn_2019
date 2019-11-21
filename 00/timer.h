@@ -13,6 +13,7 @@ public:
 
     ~Timer();
 
+
 private:
     const clock_t::time_point start_;
 };
