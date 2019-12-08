@@ -25,13 +25,30 @@ struct nonvoid_check<void> {};
 class ThreadPool
 {
     size_t poolSize_;
-    bool active_;
+    std::atomic<bool> active_;
 
     std::queue<std::function<void ()> > queue_;
     std::queue<std::thread> pool_;
 
     std::mutex mutex_;
     std::condition_variable wakeUp_;
+
+
+    template<class T, class... Args>
+    void setoutput(std::shared_ptr<std::promise<T> >& p,
+                   std::function<T (Args...)> func, Args&... args,
+                   typename nonvoid_check<T>::type* =nullptr)
+    {
+        p->set_value(func(args...));
+    }
+    template<class T, class... Args>
+    void setoutput(std::shared_ptr<std::promise<T> >& p,
+                   std::function<T (Args...)> func, Args&... args,
+                   typename void_check<T>::type* =nullptr)
+    {
+        func(args...);
+        p->set_value();
+    }
 
 public:
     explicit ThreadPool(size_t poolSize)
@@ -64,10 +81,7 @@ public:
 
     ~ThreadPool ()
     {
-        {
-            std::unique_lock<std::mutex> lock(mutex_);
-            active_ = false;
-        }
+        active_ = false;
         wakeUp_.notify_all();
         while (!pool_.empty())
         {
@@ -78,26 +92,7 @@ public:
 
 
     template <class Func, class... Args>
-    auto exec(Func func, Args... args
-    ) -> std::future<typename void_check<decltype(func(args...))>::type>
-    {
-        auto p = std::make_shared<std::promise<void> >();
-
-        {
-            std::unique_lock<std::mutex> lock(mutex_);
-            queue_.push([=]() mutable {
-                func(args...);
-                p->set_value();
-            });
-        }
-        wakeUp_.notify_one();
-
-        return p->get_future();
-    }
-
-    template <class Func, class... Args>
-    auto exec(Func func, Args... args
-    ) -> std::future<typename nonvoid_check<decltype(func(args...))>::type>
+    auto exec(Func func, Args... args) -> std::future<decltype(func(args...))>
     {
         using output_type = decltype(func(args...));
         auto p = std::make_shared<std::promise<output_type> >();
@@ -105,7 +100,7 @@ public:
         {
             std::unique_lock<std::mutex> lock(mutex_);
             queue_.push([=]() mutable {
-                p->set_value(func(args...));
+                setoutput<output_type, Args...>(p, func, args...);
             });
         }
         wakeUp_.notify_one();
