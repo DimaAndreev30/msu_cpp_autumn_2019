@@ -5,29 +5,22 @@ CFLAGS = -std=c++14 -O2
 .PHONY: run test
 
 
-all: vector test_
+all: vector
 
 
-vector: main.o
-	$(CC) -o vector main.o $(CFLAGS)
+vector: test.o
+	$(CC) -o vector test.o $(CFLAGS)
 
-main.o: main.cpp vector.h
-	$(CC) -c main.cpp $(CFLAGS)
-
-
-test_: test.o
-	$(CC) -o test_ test.o $(CFLAGS)
-
-test.o: test.cpp vector.h
+test.o: test.cpp vector.h allocator.h iterator.h
 	$(CC) -c test.cpp $(CFLAGS)
 
 
 clean:
-	rm -rf *.o vector test_ a.out
+	rm -rf *.o vector a.out
 
 
 run: vector
 	./vector
 
-test: test_
-	./test_
+test: vector
+	./vector
