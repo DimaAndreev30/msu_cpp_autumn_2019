@@ -15,13 +15,14 @@
 
 class sorter
 {
-    std::mutex mutex_;
+    std::mutex input_mutex_, output_mutex_;
     int working_threads_counter_;
     std::condition_variable signal_;
 
-    static constexpr size_t type_size_ = sizeof(uint64_t);
+    using type = uint64_t;
+    static constexpr size_t type_size = sizeof(type);
     size_t mem_size_;
-    char* memory_;
+    type* memory_;
 
     std::ifstream& input_;
     std::ofstream& output_;
@@ -32,14 +33,17 @@ class sorter
 
 public:
     sorter(std::ifstream& input, std::ofstream& output, size_t max_mem)
-        : mem_size_(max_mem)
-        , memory_(new char [mem_size_])
+        : mem_size_(max_mem/type_size)
+        , memory_(new type [mem_size_])
         , input_(input), output_(output)
         , working_threads_counter_(0)
         , temp_files_counter_(0), basis_("temp_")
     {
+        // Доступную память делим поровну между потоками:
+        // Вообще, есть мнение, что разумнее было дать одному потоку сортировать блоки из входного файла, а второму заниматься слиянием этих блоков.
+        // Но я очень умный, поэтому оба потока занимаются один и тем же. Сначала оба сортируют блоки, потом оба их сливают.
+        // В свою защиту - слияния выгоднее проводить, когда сливаемые файлы схожих размеров, чего не достичь, разделив обязанности.
         size_t block_size = mem_size_/2;
-        block_size -= block_size%type_size_;
         auto th = std::thread([=] { thread_merge_sort(memory_, block_size); });
         thread_merge_sort(memory_ + block_size, block_size);
         th.join();
@@ -48,9 +52,9 @@ public:
     ~sorter()
     {
         std::ifstream in(merge_queue_.front(), std::ios::in | std::ios::binary);
-        while (in.read(memory_, mem_size_).gcount() > 0)
+        while (!in.read(reinterpret_cast<char*>(memory_), type_size*mem_size_).eof())
         {
-            output_.write(memory_, in.gcount());
+            output_.write(reinterpret_cast<char*>(memory_), in.gcount());
         }
 
         delete [] memory_;
@@ -58,10 +62,10 @@ public:
 
 
 private:
-    void thread_merge_sort(char* mem, size_t size);
+    void thread_merge_sort(type* mem, size_t size);
 
-    bool sort_partition(char* mem, size_t size);
-    bool merge(char* mem, size_t size);
+    bool sort_partition(type* mem, size_t size);
+    bool merge(type* mem, size_t size);
 
     void create_unique_name(std::string& name);
 };
@@ -73,7 +77,7 @@ void sort(std::ifstream& input, std::ofstream& output, size_t max_mem)
 }
 
 
-void sorter::thread_merge_sort(char* mem, size_t size)
+void sorter::thread_merge_sort(type* mem, size_t size)
 {
     // Первый этап - отсортировать по кускам наибольших доступных размеров
     // и рассовать их по отдельным файлам:
@@ -81,6 +85,8 @@ void sorter::thread_merge_sort(char* mem, size_t size)
     {}
 
     // Второй этап - последовательным слиянием файлов получить результат:
+    // Вообще говоря, этой функции такие большие объемы памяти не нужны,
+    // ведь ей нужна только память под буферы для чтения из файлов. Но пусть так.
     while(merge(mem, size))
     {}
 
@@ -88,41 +94,43 @@ void sorter::thread_merge_sort(char* mem, size_t size)
 }
 
 
-bool sorter::sort_partition(char* mem, size_t size)
+bool sorter::sort_partition(type* mem, size_t size)
 {
-    std::unique_lock<std::mutex> lock(mutex_);
+    {
+        std::unique_lock<std::mutex> lock(input_mutex_);
 
-    input_.read(mem, size);
-    size = input_.gcount();
+        input_.read(reinterpret_cast<char*>(mem), type_size*size);
+        size = input_.gcount();
+    }
     if (size == 0) return false;
+    size /= type_size;
 
     std::string name;
     create_unique_name(name);
 
-    lock.unlock();
-
-
-    auto array_begin = reinterpret_cast<uint64_t*>(mem);
-    auto array_end = array_begin + size/type_size_;
-    std::sort(array_begin, array_end);
+    std::sort(mem, mem + size);
 
     std::ofstream out(name, std::ios::out | std::ios::binary);
-    out.write(mem, size);
+    out.write(reinterpret_cast<char*>(mem), type_size*size);
     out.close();
 
-    lock.lock();
-    merge_queue_.push(name);
+    {
+        std::unique_lock<std::mutex> lock(output_mutex_);
+        merge_queue_.push(name);
+    }
 
     return true;
 }
 
 
-bool sorter::merge(char* mem, size_t size)
+bool sorter::merge(type* mem, size_t size)
 {
-    std::unique_lock<std::mutex> lock(mutex_);
-
+    std::unique_lock<std::mutex> lock(output_mutex_);
+    // Ожидаем прихода в очередь двух файлов на слияние:
     while (merge_queue_.size() < 2)
     {
+        // Надеяться на появление новых файлов в очереди имеет смысл
+        // только до тех пор, пока какие-то потоки не завершат свою работу:
         if (working_threads_counter_ > 0) signal_.wait(lock);
         else return false;
     }
@@ -133,24 +141,24 @@ bool sorter::merge(char* mem, size_t size)
     std::ifstream in_b (merge_queue_.front(), std::ios::in | std::ios::binary);
     merge_queue_.pop();
 
-    std::string name;
-    create_unique_name(name);
-
     lock.unlock();
 
+
+    std::string name;
+    create_unique_name(name);
     std::ofstream out (name, std::ios::out | std::ios::binary);
 
-    size_t buff_size = (size/type_size_)/8;
-    size_t left_size = (size/type_size_ - buff_size)/2, right_size = left_size;
+    size_t buff_size = size/2;
+    size_t left_size = (size - buff_size)/2, right_size = left_size;
 
-    auto left_arr = reinterpret_cast<uint64_t*>(mem);
-    auto right_arr = left_arr + left_size;
-    auto buff = right_arr + right_size;
+    type* left_arr = mem;
+    type* right_arr = left_arr + left_size;
+    type* buff = right_arr + right_size;
 
-    in_a.read(reinterpret_cast<char*>(left_arr), type_size_*left_size);
-    in_b.read(reinterpret_cast<char*>(right_arr), type_size_*right_size);
-    left_size = in_a.gcount()/type_size_;
-    right_size = in_b.gcount()/type_size_;
+    in_a.read(reinterpret_cast<char*>(left_arr), type_size*left_size);
+    in_b.read(reinterpret_cast<char*>(right_arr), type_size*right_size);
+    left_size = in_a.gcount()/type_size;
+    right_size = in_b.gcount()/type_size;
 
     size_t left = 0, right = 0, curr = 0;
     while(true)
@@ -163,14 +171,14 @@ bool sorter::merge(char* mem, size_t size)
             {
                 left = 0;
 
-                in_a.read(reinterpret_cast<char*>(left_arr), type_size_*left_size);
-                left_size = in_a.gcount()/type_size_;
+                in_a.read(reinterpret_cast<char*>(left_arr), type_size*left_size);
+                left_size = in_a.gcount()/type_size;
                 if (left_size == 0)
                 {
-                    out.write(reinterpret_cast<char*>(buff), type_size_*curr);
-                    out.write(reinterpret_cast<char*>(right_arr + right), type_size_*(right_size - right));
-                    while(in_b.read(mem, size).gcount() > 0)
-                    { out.write(mem, in_b.gcount()); }
+                    out.write(reinterpret_cast<char*>(buff), type_size*curr);
+                    out.write(reinterpret_cast<char*>(right_arr + right), type_size*(right_size - right));
+                    while(!in_b.read(reinterpret_cast<char*>(buff), type_size*buff_size).eof())
+                    { out.write(reinterpret_cast<char*>(buff), in_b.gcount()); }
                     break;
                 }
             }
@@ -183,14 +191,14 @@ bool sorter::merge(char* mem, size_t size)
             {
                 right = 0;
 
-                in_b.read(reinterpret_cast<char*>(right_arr), type_size_*right_size);
-                right_size = in_b.gcount()/type_size_;
+                in_b.read(reinterpret_cast<char*>(right_arr), type_size*right_size);
+                right_size = in_b.gcount()/type_size;
                 if (right_size == 0)
                 {
-                    out.write(reinterpret_cast<char*>(buff), type_size_*curr);
-                    out.write(reinterpret_cast<char*>(left_arr + left), type_size_*(left_size - left));
-                    while(in_a.read(mem, size).gcount() > 0)
-                    { out.write(mem, in_a.gcount()); }
+                    out.write(reinterpret_cast<char*>(buff), type_size*curr);
+                    out.write(reinterpret_cast<char*>(left_arr + left), type_size*(left_size - left));
+                    while(!in_a.read(reinterpret_cast<char*>(buff), type_size*buff_size).eof())
+                    { out.write(reinterpret_cast<char*>(buff), in_a.gcount()); }
                     break;
                 }
             }
@@ -199,7 +207,7 @@ bool sorter::merge(char* mem, size_t size)
         if (curr >= buff_size)
         {
             curr = 0;
-            out.write(reinterpret_cast<char*>(buff), type_size_*buff_size);
+            out.write(reinterpret_cast<char*>(buff), type_size*buff_size);
         }
     }
 
@@ -208,14 +216,17 @@ bool sorter::merge(char* mem, size_t size)
     in_b.close();
     in_a.close();
 
+
     lock.lock();
     merge_queue_.push(name);
     working_threads_counter_--;
+
     signal_.notify_one();
 }
 
 
 void sorter::create_unique_name(std::string& name)
 {
+    std::unique_lock<std::mutex> lock(output_mutex_);
     name = basis_ + std::to_string(++temp_files_counter_);
 }

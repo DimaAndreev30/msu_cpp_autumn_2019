@@ -9,14 +9,15 @@ int main (int argc, char* argv[])
 {
 	const char* input_filename = "input.txt";
 	const char* output_filename = "output.txt";
-	if (--argc > 0) input_filename = *(++argv);
-	if (--argc > 0) output_filename = *(++argv);
+	// if (--argc > 0) input_filename = *(++argv);
+	// if (--argc > 0) output_filename = *(++argv);
 
 	std::ifstream input (input_filename, std::ios::in | std::ios::binary);
 	std::ofstream output (output_filename, std::ios::out | std::ios::binary);
 	if (input && output)
 	{
-		sort(input, output, 1024);
+		// Сортируем файл размером 64Мб:
+		sort(input, output, 0x100000); // Доступная память - 1Мб
 		output.close();
 		input.close();
 
@@ -28,7 +29,7 @@ int main (int argc, char* argv[])
 			n++;
 			if (prev > next) std::cout << prev << " > " << next << std::endl;
 		}
-		std::cout << n << std::endl;
+		if (n != 0x800000) std::cout << n << " != " << 0x800000 << std::endl;
 		input.close();
 	}
 	else
@@ -36,11 +37,11 @@ int main (int argc, char* argv[])
 		std::cout << "File \'" << input_filename << "\' not found\n";
 	}
 
-	return 0;/*
-	int n = 8192;
+	return 0;
+	/*
+	// Генерируем случайный файл
+	int n = 0x800000; // Размером 64Мб
 	const char* output_filename = "input.txt";
-	if (--argc > 0) n = atoi(*(++argv));
-	if (--argc > 0) output_filename = *(++argv);
 	std::ofstream output (output_filename, std::ios::out | std::ios::binary);
 
 	for (int i = 0; i < n; i++)
@@ -50,7 +51,6 @@ int main (int argc, char* argv[])
 	}
 	output.close();*//*
 	const char* input_filename = "input.txt";
-	if (--argc > 0) input_filename = *(++argv);
 	std::ifstream input(input_filename, std::ios::in | std::ios::binary);
 
 	int n = 0;
