@@ -23,8 +23,6 @@ public:
 
     template<class... Args>
     void construct(pointer, Args&&...);
-    void construct(pointer, const_reference);
-    void construct(pointer, T&&);
     void destroy(pointer);
 
     size_type max_size();
@@ -49,18 +47,6 @@ template<class... Args>
 void Allocator<T>::construct(pointer ptr, Args&&... args)
 {
     new(ptr) value_type(std::forward<Args>(args)...);
-}
-
-template<class T>
-void Allocator<T>::construct(pointer ptr, const_reference value)
-{
-    new(ptr) value_type(value);
-}
-
-template<class T>
-void Allocator<T>::construct(pointer ptr, T&& value)
-{
-    new(ptr) value_type(value);
 }
 
 template<class T>

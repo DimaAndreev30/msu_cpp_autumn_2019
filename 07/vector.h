@@ -7,7 +7,7 @@
 template <class T, class Alloc=Allocator<T> >
 class Vector
 {
-    const static std::size_t base_size = 64;
+    const static std::size_t base_size = 32;
 
     Alloc alloc_;
     std::size_t mem_size_;
@@ -97,7 +97,7 @@ template<class T, class Alloc>
 void Vector<T, Alloc>::push_back(const T& value)
 {
     if (size() >= mem_size_) {
-        reserve(mem_size_*2);
+        reserve(mem_size_*2 + 1);
     }
     alloc_.construct(end_, value);
     ++end_;
@@ -107,9 +107,9 @@ template<class T, class Alloc>
 void Vector<T, Alloc>::push_back(T&& value)
 {
     if (size() >= mem_size_) {
-        reserve(mem_size_*2);
+        reserve(mem_size_*2 + 1);
     }
-    alloc_.construct(end_, value);
+    alloc_.construct(end_, std::forward<T>(value));
     ++end_;
 }
 
